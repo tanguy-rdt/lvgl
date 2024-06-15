@@ -51,6 +51,32 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
+typedef enum _lv_image_flags_t {
+    /**
+     * The image data is compressed, so decoder needs to decode image firstly.
+     * If this flag is set, the whole image will be decompressed upon decode, and
+     * `get_area_cb` won't be necessary.
+     */
+    LV_IMAGE_FLAGS_COMPRESSED       = 0x0008,
+
+    /**
+     * Flags reserved for user, lvgl won't use these bits.
+     */
+    LV_IMAGE_FLAGS_USER1            = 0x0100,
+    LV_IMAGE_FLAGS_USER2            = 0x0200,
+    LV_IMAGE_FLAGS_USER3            = 0x0400,
+    LV_IMAGE_FLAGS_USER4            = 0x0800,
+    LV_IMAGE_FLAGS_USER5            = 0x1000,
+    LV_IMAGE_FLAGS_USER6            = 0x2000,
+    LV_IMAGE_FLAGS_USER7            = 0x4000,
+    LV_IMAGE_FLAGS_USER8            = 0x8000,
+} lv_image_flags_t;
+
+typedef enum {
+    LV_IMAGE_COMPRESS_NONE = 0,
+    LV_IMAGE_COMPRESS_RLE,  /*LVGL custom RLE compression*/
+} lv_image_compress_t;
+
 /*Image color format*/
 enum {
     LV_IMG_CF_UNKNOWN = 0,
@@ -118,6 +144,7 @@ typedef struct {
     uint32_t reserved : 2; /*Reserved to be used later*/
     uint32_t always_zero : 3; /*It the upper bits of the first byte. Always zero to look like a
                                  non-printable character*/
+    uint32_t flags: 16;         /*Image flags, see `lv_image_flags_t`*/
     uint32_t cf : 5;          /*Color format: See `lv_img_color_format_t`*/
 
 } lv_img_header_t;
@@ -125,6 +152,7 @@ typedef struct {
 typedef struct {
 
     uint32_t cf : 5;          /*Color format: See `lv_img_color_format_t`*/
+    uint32_t flags: 16;         /*Image flags, see `lv_image_flags_t`*/
     uint32_t always_zero : 3; /*It the upper bits of the first byte. Always zero to look like a
                                  non-printable character*/
 

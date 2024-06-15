@@ -659,6 +659,9 @@
 /*GIF decoder library*/
 #define LV_USE_GIF 0
 
+/*RLE decompress library*/
+#define LV_USE_RLE 0
+
 /*QR code library*/
 #define LV_USE_QRCODE 0
 
