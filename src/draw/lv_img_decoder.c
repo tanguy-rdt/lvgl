@@ -23,6 +23,12 @@
  **********************/
 
 typedef struct {
+    uint32_t compression_type;
+    uint32_t compressed_length;
+    uint32_t decompressed_length;
+} lv_img_compressed_header;
+
+typedef struct {
     lv_fs_file_t f;
     lv_color_t * palette;
     lv_opa_t * opa;
@@ -31,6 +37,7 @@ typedef struct {
 /**********************
  *  STATIC PROTOTYPES
  **********************/
+static lv_res_t decompress_rle(lv_img_decoder_dsc_t * dsc);
 static lv_res_t lv_img_decoder_built_in_line_true_color(lv_img_decoder_dsc_t * dsc, lv_coord_t x, lv_coord_t y,
                                                         lv_coord_t len, uint8_t * buf);
 static lv_res_t lv_img_decoder_built_in_line_alpha(lv_img_decoder_dsc_t * dsc, lv_coord_t x, lv_coord_t y,
@@ -279,9 +286,10 @@ lv_res_t lv_img_decoder_built_in_info(lv_img_decoder_t * decoder, const void * s
         lv_img_cf_t cf = ((lv_img_dsc_t *)src)->header.cf;
         if(cf < CF_BUILT_IN_FIRST || cf > CF_BUILT_IN_LAST) return LV_RES_INV;
 
-        header->w  = ((lv_img_dsc_t *)src)->header.w;
-        header->h  = ((lv_img_dsc_t *)src)->header.h;
-        header->cf = ((lv_img_dsc_t *)src)->header.cf;
+        header->w     = ((lv_img_dsc_t *)src)->header.w;
+        header->h     = ((lv_img_dsc_t *)src)->header.h;
+        header->flags = ((lv_img_dsc_t *)src)->header.flags;
+        header->cf    = ((lv_img_dsc_t *)src)->header.cf;
     }
     else if(src_type == LV_IMG_SRC_FILE) {
         /*Support only "*.bin" files*/
@@ -365,7 +373,13 @@ lv_res_t lv_img_decoder_built_in_open(lv_img_decoder_t * decoder, lv_img_decoder
         if(dsc->src_type == LV_IMG_SRC_VARIABLE) {
             /*In case of uncompressed formats the image stored in the ROM/RAM.
              *So simply give its pointer*/
-            dsc->img_data = ((lv_img_dsc_t *)dsc->src)->data;
+
+            if ((cf == LV_IMG_CF_RGB565A8 || cf == LV_IMG_CF_RGB565) && (dsc->header.flags & LV_IMAGE_FLAGS_COMPRESSED)) {
+                lv_res_t res = decompress_rle(dsc);
+            }
+            else {
+                dsc->img_data = ((lv_img_dsc_t *)dsc->src)->data;
+            }
             return LV_RES_OK;
         }
         else {
@@ -727,4 +741,95 @@ static lv_res_t lv_img_decoder_built_in_line_indexed(lv_img_decoder_dsc_t * dsc,
     }
     lv_mem_buf_release(fs_buf);
     return LV_RES_OK;
+}
+
+
+static lv_res_t decompress_rle(lv_img_decoder_dsc_t * dsc) {
+    lv_img_compressed_header *header = (lv_img_compressed_header *)((lv_img_dsc_t *)dsc->src)->data;
+
+    const uint8_t *image_data = (uint8_t *)(header + 1);
+
+    uint8_t *decompressed_buf = lv_mem_alloc(header->decompressed_length);
+    if (!decompressed_buf) {
+        return LV_RES_INV;
+    }
+
+    lv_memset(decompressed_buf, 0, header->decompressed_length);
+
+    lv_rle_decompress(image_data, header->compressed_length, decompressed_buf, header->decompressed_length, 2);
+ 
+    dsc->img_data = decompressed_buf;
+    lv_mem_free(decompressed_buf);
+
+    return LV_RES_OK;
+}
+
+uint32_t lv_rle_decompress(const uint8_t * input,
+                           uint32_t input_buff_len, uint8_t * output,
+                           uint32_t output_buff_len, uint8_t blk_size)
+{
+    uint32_t ctrl_byte;
+    uint32_t rd_len = 0;
+    uint32_t wr_len = 0;
+
+    while(rd_len < input_buff_len) {
+        ctrl_byte = input[0];
+        rd_len++;
+        input++;
+        if(rd_len > input_buff_len)
+            return 0;
+
+        if(ctrl_byte & 0x80) {
+            /* copy directly from input to output */
+            uint32_t bytes = blk_size * (ctrl_byte & 0x7f);
+            rd_len += bytes;
+            if(rd_len > input_buff_len)
+                return 0;
+
+            wr_len += bytes;
+            if(wr_len > output_buff_len) {
+                if(wr_len > output_buff_len + blk_size)
+                    return 0; /* Error */
+                lv_memcpy(output, input, output_buff_len - (wr_len - bytes));
+                return output_buff_len;
+            }
+
+            lv_memcpy(output, input, bytes);
+            output += bytes;
+            input += bytes;
+        }
+        else {
+            rd_len += blk_size;
+            if(rd_len > input_buff_len)
+                return 0;
+
+            wr_len += blk_size * ctrl_byte;
+            if(wr_len > output_buff_len) {
+                if(wr_len > output_buff_len + blk_size)
+                    return 0; /* Error happened */
+
+                /* Skip the last pixel, which could overflow output buffer.*/
+                for(uint32_t i = 0; i < ctrl_byte - 1; i++) {
+                    lv_memcpy(output, input, blk_size);
+                    output += blk_size;
+                }
+                return output_buff_len;
+            }
+
+            if(blk_size == 1) {
+                /* optimize the most common case. */
+                lv_memset(output, input[0], ctrl_byte);
+                output += ctrl_byte;
+            }
+            else {
+                for(uint32_t i = 0; i < ctrl_byte; i++) {
+                    lv_memcpy(output, input, blk_size);
+                    output += blk_size;
+                }
+            }
+            input += blk_size;
+        }
+    }
+
+    return wr_len;
 }

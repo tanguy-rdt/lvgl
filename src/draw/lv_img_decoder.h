@@ -261,6 +261,10 @@ lv_res_t lv_img_decoder_built_in_read_line(lv_img_decoder_t * decoder, lv_img_de
  */
 void lv_img_decoder_built_in_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc);
 
+uint32_t lv_rle_decompress(const uint8_t * input,
+                           uint32_t input_buff_len, uint8_t * output,
+                           uint32_t output_buff_len, uint8_t blk_size);
+
 /**********************
  *      MACROS
  **********************/
