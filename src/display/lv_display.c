@@ -985,6 +985,28 @@ bool lv_display_get_matrix_rotation(lv_display_t * disp)
     return disp->matrix_rotation;
 }
 
+static lv_obj_tree_walk_res_t replace_theme_cb(lv_obj_t * obj, void * user_data)
+{
+    lv_display_t * disp = lv_obj_get_display(obj);
+    if(obj != disp->bottom_layer && obj != disp->top_layer && obj != disp->sys_layer) {
+        lv_theme_replace(obj, user_data);
+    }
+    return LV_OBJ_TREE_WALK_NEXT;
+}
+
+void lv_display_replace_theme(lv_display_t * disp, lv_theme_t * th)
+{
+    if(disp == NULL) {
+        disp = lv_display_get_default();
+    }
+    LV_CHECK_ARG(disp != NULL, return);
+
+    disp->theme = th;
+    for(uint32_t i = 0; i < disp->screen_cnt; i++) {
+        lv_obj_tree_walk(disp->screens[i], replace_theme_cb, th);
+    }
+}
+
 void lv_display_set_theme(lv_display_t * disp, lv_theme_t * th)
 {
     LV_CHECK_ARG(disp != NULL, return);

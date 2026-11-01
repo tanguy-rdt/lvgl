@@ -51,6 +51,13 @@ void lv_theme_copy(lv_theme_t * dst, const lv_theme_t * src);
 lv_theme_t  * lv_theme_get_from_obj(lv_obj_t * obj);
 
 /**
+ * Replace the active theme on an object to an other
+ * @param obj pointer to an object
+ * @param th  pointer to the new theme
+ */
+void lv_theme_replace(lv_obj_t * obj, lv_theme_t * th);
+
+/**
  * Apply the active theme on an object
  * @param obj pointer to an object
  */

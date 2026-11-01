@@ -602,6 +602,38 @@ lv_result_t lv_display_send_event(lv_display_t * disp, lv_event_code_t code, voi
 lv_area_t * lv_event_get_invalidated_area(lv_event_t * e);
 
 /**
+ * Replace the theme of a display and re-apply it to the widgets that already exist.
+ *
+ * Unlike `lv_display_set_theme()`, which only affects the widgets created afterwards,
+ * this function restyles every widget of the display: on all screens and on the
+ * children of the bottom, top and system layers.
+ *
+ * For each widget, only the styles added by the previous theme are removed
+ * (see `lv_obj_remove_theme()`), then the new theme is applied as if the widget
+ * had just been created. Local styles (`lv_obj_set_style_*()`) and styles added
+ * with `lv_obj_add_style()` are kept, and the theme styles are placed after the
+ * styles added with `lv_obj_add_style()`, so the priorities are the same as at
+ * creation.
+ *
+ * The new theme does not need to style the same widgets as the previous one: its
+ * apply callback decides again, for each widget, which styles to add.
+ *
+ * Widgets created afterwards get the new theme, as with `lv_display_set_theme()`.
+ *
+ * @param disp pointer to a display
+ * @param th pointer to the new theme
+ *
+ * @note The bottom, top and system layers themselves are not restyled, only their
+ *       children.
+ * @note Widgets whose styles were all removed with `lv_obj_remove_style_all()` get
+ *       the styles of the new theme. Override them with local styles to keep such
+ *       widgets unstyled.
+ * @note Every widget of the display is visited, so the cost grows with the number
+ *       of widgets.
+ */
+void lv_display_replace_theme(lv_display_t * disp, lv_theme_t * th);
+
+/**
  * Set the theme of a display.
  *
  * The theme is applied to each widget when it is created, so this affects the widgets

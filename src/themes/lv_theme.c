@@ -63,6 +63,15 @@ void lv_theme_copy(lv_theme_t * dst, const lv_theme_t * src)
     lv_memcpy(dst, src, sizeof(*src));
 }
 
+void lv_theme_replace(lv_obj_t * obj, lv_theme_t * th)
+{
+    LV_CHECK_OBJ(obj, &lv_obj_class, return);
+    LV_CHECK_ARG(th != NULL, return);
+
+    lv_obj_remove_theme(obj, LV_PART_ANY | LV_STATE_ANY);
+    apply_theme_recursion(th, obj);
+}
+
 void lv_theme_apply(lv_obj_t * obj)
 {
     LV_CHECK_OBJ(obj, &lv_obj_class, return);
@@ -149,10 +158,31 @@ static void apply_theme(lv_theme_t * th, lv_obj_t * obj)
 {
     if(th->parent) apply_theme(th->parent, obj);
     if(th->apply_cb) {
-        th->apply_cb(th, obj);
-        for(uint32_t i = 0; i < obj->style_cnt; i++) {
-            obj->styles[i].is_theme = 1;
+        /* Remember the styles the object already has */
+        uint32_t old_cnt = obj->style_cnt;
+        lv_obj_style_t * old = NULL;
+        if(old_cnt > 0) {
+            old = lv_malloc(old_cnt * sizeof(lv_obj_style_t));
+            LV_ASSERT_MALLOC(old);
+            if(old == NULL) return;
+            lv_memcpy(old, obj->styles, old_cnt * sizeof(lv_obj_style_t));
         }
+
+        th->apply_cb(th, obj);
+
+        /* Mark only the styles added by the callback */
+        for(uint32_t i = 0; i < obj->style_cnt; i++) {
+            bool existed = false;
+            for(uint32_t j = 0; j < old_cnt; j++) {
+                if(old[j].style == obj->styles[i].style && old[j].selector == obj->styles[i].selector) {
+                    existed = true;
+                    break;
+                }
+            }
+            if(!existed) obj->styles[i].is_theme = 1;
+        }
+
+        lv_free(old);
     }
 }
 
